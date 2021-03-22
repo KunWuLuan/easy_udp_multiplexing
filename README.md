@@ -1,2 +1,2 @@
-# mutithread_udp
-udp class that support multi I/O reuse
+# easy_udp_multiplexing
+udp accept function that support easy_udp_multiplexing
