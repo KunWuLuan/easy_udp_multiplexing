@@ -31,7 +31,7 @@ void clientLoop(int num){
 }
 
 int main(){
-    int clientNum = 10;
+    int clientNum = 1;
     vector<thread> threadVec;
     for(int i=0;i<clientNum;i++){
         thread cliThread = thread(clientLoop, i);

@@ -2,6 +2,7 @@
 #include<arpa/inet.h>
 #include<sys/socket.h>
 #include<errno.h>
+#include<unistd.h>
 #include<memory>
 #include<iostream>
 #include<netinet/in.h>
@@ -22,12 +23,13 @@ void printAddr(sockaddr * cliAddr){
 }
 
 void handler(void * msg, int msgLen){
+    std::cout<<(char*)msg<<std::endl;
     return ; 
 }
 
 void serverLoop(int fd, sockaddr cliAddr, void * msg, int msgLen){
-    // std::cerr<<fd<<std::endl;
     printAddr(&cliAddr);
+    send(fd, "hello", 6, 0);
     handler(msg, msgLen);
     while(1){
         int bufSize = 4096;
@@ -38,9 +40,7 @@ void serverLoop(int fd, sockaddr cliAddr, void * msg, int msgLen){
             break;
         }
         buf[recvLen] = 0;
-        handler(msg, msgLen);
-
-        std::cout<<fd<<" "<<msg<<std::endl;
+        handler(buf, recvLen);
     }
 }
 
@@ -77,8 +77,13 @@ int main() {
                 int bufSize = 1024;
                 char * buf = new char[bufSize];
                 int cliSock = UdpAccept(udpListenSock, buf, &bufSize, 0, &cliAddr, &l);
+                if(cliSock < 0){
+                    std::cout<<"err code:"<<cliSock<<std::endl<<"errno:"<<errno<<":"<<strerror(errno)<<std::endl;
+                    return -1;
+                }
                 std::thread newRequest = std::thread(serverLoop, cliSock, cliAddr, (void*)buf, bufSize);
                 newRequest.detach();
+                sleep(1);
             }
         }else{
             std::cout<<"errno:"<<errno<<" err:"<<strerror(errno)<<std::endl;
