@@ -1,2 +1,4 @@
 # easy_udp_multiplexing
 udp accept function that support easy_udp_multiplexing
+
+当前udp在利用SO_REUSEPORT和SO_REUSEADDR选项之后可以多个套接字监听同一个本地端口，并且内核会负责负载均衡。当这些套接字connect了一个远程地址之后，内核会负责将从远程地址发来的数据包发到对应的端口。不过我自己写了代码测试发现在公司的4.14版本内核下还是没法做到自动分发。
