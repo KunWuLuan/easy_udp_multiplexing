@@ -7,12 +7,15 @@
 #include<iostream>
 #include<netinet/in.h>
 #include<memory>
+#include<thread>
+#include<mutex>
 #ifdef __linux__
 #include<sys/epoll.h>
 #elif __APPLE__
-#include<thread>
 #include<sys/select.h>
 #endif
+
+std::mutex m;
 
 void printAddr(sockaddr * cliAddr){
     sockaddr_in * addr = (sockaddr_in *)(cliAddr);
@@ -28,9 +31,13 @@ void handler(void * msg, int msgLen){
 }
 
 void serverLoop(int fd, sockaddr cliAddr, void * msg, int msgLen){
+    m.lock();
     printAddr(&cliAddr);
+    m.unlock();
     send(fd, "hello", 6, 0);
+    m.lock();
     handler(msg, msgLen);
+    m.unlock();
     while(1){
         int bufSize = 4096;
         char * buf = new char[1024];
@@ -40,7 +47,9 @@ void serverLoop(int fd, sockaddr cliAddr, void * msg, int msgLen){
             break;
         }
         buf[recvLen] = 0;
+        m.lock();
         handler(buf, recvLen);
+        m.unlock(); 
     }
 }
 

@@ -1,7 +1,41 @@
 #pragma once
 #include<sys/socket.h>
 #include<arpa/inet.h>
-#include<stdio.h>
+#include<thread>
+#include<map>
+#include<set>
+#include<list>
+
+using namespace std;
+
+thread bgThread;
+
+set<int> listenFd;
+list<pair<int, int>> activeList;
+map<pair<int,short>, int> addr2Fd;
+map<int, pair<int,short>> fd2Addr;
+
+int breakTime = 10;
+
+void findActiveSocket(){
+
+}
+
+void subThreadWorkingLoop(){
+
+}
+
+void MultiplexingUdpInit(){
+    bgThread = thread(subThreadWorkingLoop);
+}
+
+int UdpListen(int fd){
+    if(listenFd.count(fd) != 0){
+        return -1;
+    }
+    listenFd.insert(fd);
+    return 0;
+}
 
 int UdpAccept(int fd, void * buf, int * recvLen, int flag, sockaddr * addr, socklen_t * l){
     *l = sizeof(sockaddr);
@@ -15,7 +49,7 @@ int UdpAccept(int fd, void * buf, int * recvLen, int flag, sockaddr * addr, sock
     if(getsockname(fd, &addr_in, &l_in) == -1){
         return -2;
     }
-    if(bind(udpSock, &addr_in, sizeof(addr_in))==-1){
+    if(::bind(udpSock, &addr_in, sizeof(addr_in)) == -1){
         return -3;
     }
     if(connect(udpSock, addr, *l)==-1){
