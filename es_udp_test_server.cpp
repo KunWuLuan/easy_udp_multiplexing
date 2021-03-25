@@ -3,6 +3,7 @@
 #include<sys/socket.h>
 #include<errno.h>
 #include<unistd.h>
+#include<string.h>
 #include<memory>
 #include<iostream>
 #include<netinet/in.h>
@@ -72,7 +73,42 @@ int main() {
     }
 
 #ifdef __linux__
+    #define MAX_EVENTS 10
+    struct epoll_event ev, events[MAX_EVENTS];   
+    int epollfd = epoll_create1(EPOLL_CLOEXEC);
+    if(epollfd == -1){
+        std::cerr<<"create epoll error"<<std::endl;
+        return -1;
+    }
 
+    ev.events = EPOLLIN;
+    ev.data.fd = udpListenSock;
+    if (epoll_ctl(epollfd, EPOLL_CTL_ADD, udpListenSock, &ev) == -1) {
+        std::cerr<<"add fd to epoll error"<<std::endl;
+        return -1;
+    }
+
+    while(1){
+        int nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
+        if (nfds == -1) {
+            std::cerr<<errno<<":"<<strerror(errno)<<std::endl;
+            return -1;
+        }
+        socklen_t l;
+        sockaddr cliAddr;
+        int bufSize = 1024;
+        char * buf = new char[bufSize];
+        int cliSock = UdpAccept(udpListenSock, buf, &bufSize, 0, &cliAddr, &l);
+        if(cliSock < 0){
+            std::cout<<"err code:"<<cliSock<<std::endl<<"errno:"<<errno<<":"<<strerror(errno)<<std::endl;
+            return -1;
+        }
+        if(cliSock == 0){
+            continue;
+        }
+        std::thread newRequest = std::thread(serverLoop, cliSock, cliAddr, (void*)buf, bufSize);
+        newRequest.detach();
+    }
 #elif __APPLE__
     while(1){
         fd_set fds;
@@ -90,9 +126,11 @@ int main() {
                     std::cout<<"err code:"<<cliSock<<std::endl<<"errno:"<<errno<<":"<<strerror(errno)<<std::endl;
                     return -1;
                 }
+                if(cliSock == 0){
+                    continue;
+                }
                 std::thread newRequest = std::thread(serverLoop, cliSock, cliAddr, (void*)buf, bufSize);
                 newRequest.detach();
-                sleep(1);
             }
         }else{
             std::cout<<"errno:"<<errno<<" err:"<<strerror(errno)<<std::endl;

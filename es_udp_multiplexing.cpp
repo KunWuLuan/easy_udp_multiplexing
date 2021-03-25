@@ -1,32 +1,17 @@
 #pragma once
 #include<sys/socket.h>
 #include<arpa/inet.h>
-#include<thread>
 #include<map>
 #include<set>
-#include<list>
+#include<unistd.h>
 
 using namespace std;
 
-thread bgThread;
-
 set<int> listenFd;
-list<pair<int, int>> activeList;
-map<pair<int,short>, int> addr2Fd;
-map<int, pair<int,short>> fd2Addr;
-
-int breakTime = 10;
-
-void findActiveSocket(){
-
-}
-
-void subThreadWorkingLoop(){
-
-}
+map<pair<int, short>, int> addr2Fd;
+map<int, sockaddr> fd2Addr;
 
 void MultiplexingUdpInit(){
-    bgThread = thread(subThreadWorkingLoop);
 }
 
 int UdpListen(int fd){
@@ -38,8 +23,22 @@ int UdpListen(int fd){
 }
 
 int UdpAccept(int fd, void * buf, int * recvLen, int flag, sockaddr * addr, socklen_t * l){
+    if(listenFd.count(fd) == 0){
+        return -5;
+    }
+
+    if(buf == nullptr || recvLen == nullptr || addr == nullptr || l == nullptr){
+        return -1;
+    }
+
     *l = sizeof(sockaddr);
     *recvLen = recvfrom(fd, buf, *recvLen, flag, addr, l);
+    
+    pair<int, short> mpKey = pair<int, short>(int(((sockaddr_in*)addr)->sin_addr.s_addr), short(((sockaddr_in*)addr)->sin_port));
+    if(addr2Fd.count(mpKey) == 1){
+        send(addr2Fd[mpKey], buf, *recvLen, 0);
+        return 0;
+    }
     int udpSock = socket(AF_INET, SOCK_DGRAM, 0);
     int optVal = 1;
     if(setsockopt(udpSock, SOL_SOCKET, SO_REUSEADDR, &optVal, sizeof(optVal))==-1)return -1;
@@ -55,5 +54,23 @@ int UdpAccept(int fd, void * buf, int * recvLen, int flag, sockaddr * addr, sock
     if(connect(udpSock, addr, *l)==-1){
         return -4;
     }
+
+    addr2Fd[mpKey] = udpSock;
+    fd2Addr[udpSock] = *addr;
     return udpSock;
+}
+
+void UdpClose(int fd){
+    if(listenFd.count(fd) == 1){
+        listenFd.erase(fd);
+        close(fd);
+        return ;
+    }
+
+    sockaddr addr = fd2Addr[fd];
+    pair<int, short> mpKey = pair<int, short>(int(((sockaddr_in*)&addr)->sin_addr.s_addr), short(((sockaddr_in*)&addr)->sin_port));
+    fd2Addr.erase(fd);
+    addr2Fd.erase(mpKey);
+    close(fd);
+    return ;
 }
